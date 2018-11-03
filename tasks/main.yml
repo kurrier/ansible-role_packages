@@ -9,7 +9,8 @@
 
 - name: add packages variables
   include_vars:
-    file: "vars/defaults.yml"
+    file: "defaults.yml"
+  when: function != "ci"
 #  no_log: true
   
 - block:
