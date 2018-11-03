@@ -13,11 +13,11 @@ N/A
 Role Variables
 --------------
 
-vars/check.yml - Check settings
-vars/defaults.yaml - Default settings
-vars/RedHat.yml - Red Hat vars for reporting
-vars/report.yml - Report setup
-vars/update.yml - Update settings
+* vars/check.yml - Check settings
+* vars/defaults.yaml - Default settings
+* vars/RedHat.yml - Red Hat vars for reporting
+* vars/report.yml - Report setup
+* vars/update.yml - Update settings
 
 * packages_function_check: [true/false] - enable/disable Update Report function
 * packages_function_install: [true/false] - enable/disable Install package function
