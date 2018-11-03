@@ -2,12 +2,9 @@
 # tasks file for kurrier.packages
 
 - name: add OS variables
-  include_vars: "{{ item }}"
-  with_first_found:
-    - "{{ ansible_distribution }}{{ ansible_distribution_major_version }}.yml"
-    skip: true
-#  no_log: true
-   when: function != ci
+  include_vars:
+    file: "RedHat.yml"
+  no_log: true
 
 - name: add packages variables
   include_vars:
