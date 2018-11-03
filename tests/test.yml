@@ -2,7 +2,7 @@
 - hosts: localhost
   connection: local
   become: no
-  gather_facts: false
+  gather_facts: no
   vars:
     env: test
     function: ci
@@ -11,6 +11,13 @@
     msg_function_alert: false
     msg_function_report: false
     msg_function_remove: false
+  pre_tasks:
+    - setup:
+        filter: ansible_hostname
+    - setup:
+        filter: ansible_distribution*
+    - setup:
+        filter: ansible_date_time*
   tasks:
     - include_tasks: "../tasks/main.yml"
 
