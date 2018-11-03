@@ -1,5 +1,5 @@
 ---
-# vars file for lc.packages
+# vars file for kurrier.packages
 
 # Location Variables
 package_process_location: "{{ lookup('env', 'HOME') }}/.ansible/reports/updates/"

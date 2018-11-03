@@ -1,5 +1,5 @@
 ---
-# vars file for lc.packages
+# vars file for kurrier.packages
 
 package_last_update: "{{ package_update_chk.stdout }}"
 package_count: "{{ package_process_count.stdout }}"
