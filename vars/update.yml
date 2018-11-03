@@ -1,0 +1,3 @@
+---
+
+package_update_reboot: "KERNEL_NEW=$(rpm -q kernel | tail -n1 | awk '{print $1}' | sed 's/kernel-//'); KERNEL_NOW=$(uname -r); if [[ $KERNEL_NEW != $KERNEL_NOW ]]; then echo 'reboot_needed'; else echo 'reboot_not_needed'; fi"

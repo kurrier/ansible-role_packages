@@ -1,0 +1,19 @@
+---
+#Host Report Variables
+package_host_outfile: yum-results-{{ lookup('pipe', 'date +%Y-%m') }}.txt
+package_host_results: "{{ package_script_location }}{{ package_host_outfile }}"
+
+package_results_outfile: "{{ ansible_hostname }}-results_{{ package_uuid.stdout }}.txt"
+#package_results_outfile_tmp: "{{ ansible_hostname }}-tmp.txt"
+
+#Job Report Variables
+package_process_location: "{{ lookup('env', 'HOME') }}/.ansible/reports/updates/"
+package_report_location: "{{ package_process_location }}{{ lookup('pipe', 'date +%Y-%m') }}/"
+package_results_location: "{{ package_report_location }}hosts/"
+
+package_report_final: "{{ env }}_updates_{{ package_results_final_time }}.txt"
+
+#Archive Variables
+package_archive_location: "{{ ansible_archive_location }}reports/updates/{{ lookup('pipe', 'date +%Y-%m') }}/"
+
+

@@ -1,0 +1,61 @@
+---
+
+- name: add packages variables
+  include_vars:
+    file: "update.yml"
+  no_log: true
+
+- set_fact:
+    package_update_cmd: "update-minimal --security -y"
+    package_update_type: "Security Patches"
+    package_update_run: "security"
+    package_update_grep: "Updated"
+
+- name: set version
+  shell: "uuidgen -r | cut -c1-8"
+  register: package_uuid
+  delegate_to: localhost
+  run_once: true
+
+- name: installing security patches
+  shell: "sudo yum {{ package_update_cmd }} --skip-broken --exclude={{ packages_blacklist }}"
+  register: package_install_chk
+  ignore_errors: true
+#- debug: var=package_install_chk
+
+- debug: msg={{ package_install_chk.rc }}
+  register: package_run
+  when:
+    - package_install_chk is success
+    - package_install_chk.rc == 0
+    - not "no packages marked for minimal update" in package_install_chk.stdout|lower
+
+- name: package install details
+  block:
+    - set_fact:
+        package_update_date: "{{ package_install_chk.start | regex_replace('.{16}$') }}"
+        package_update_time: "{{ package_install_chk.start | regex_replace('^.{0,11}') | regex_replace('.{10}$') }}"
+        msg_job_time: "{{ lookup('pipe', 'date +%s') }}"
+        msg_job_uuid: "{{ package_uuid.stdout }}"
+
+    - name: getting update id
+      shell: "sudo yum history info | grep 'Transaction ID' | cut -d ':' -f2 | awk '{print $1}'"
+      register: package_id
+
+    - name: saving version
+      shell: "echo {{ package_uuid.stdout }}-{{ package_id.stdout }} > {{ package_uuid_file }}"
+      become: no
+
+    - set_fact:
+        packages_function_report: true
+        packages_function_alert: true
+
+    - name: package cleanup
+      shell: "sudo yum clean all"
+
+  when: not package_run is skipped
+
+- set_fact:
+    packages_function_report: false
+    packages_function_alert: false
+  when: package_run is skipped

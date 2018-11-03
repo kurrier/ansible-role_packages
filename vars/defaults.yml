@@ -1,0 +1,24 @@
+---
+# vars file for lc.packages
+#packages_advisory: []
+#packages_all: []
+#packages_check: []
+#packages_install: []
+#packages_security: []
+packages_remove: []
+packages_remove_job: []
+
+packages_blacklist: []
+
+#packages_function_report: []
+#packages_function_alert: []
+
+package_script_location: "~/.ansible/"
+package_tmp_location: "/tmp/"
+package_script1_name: updates-check.sh
+package_script2_name: last-update.sh
+package_script3_name: updates-results.sh
+package_script3_outfile: yum-results-{{ lookup('pipe', 'date +%Y-%m') }}.txt
+
+package_uuid_file: "~/VERSION"
+

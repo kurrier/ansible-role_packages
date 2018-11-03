@@ -1,0 +1,57 @@
+---
+
+- set_fact:
+    package_update_cmd: "update --advisory {{ packages_advisory }} -y"
+    package_update_type: "Advisory: {{ packages_advisory }}"
+    package_update_run: "update"
+    package_update_grep: "Updated"
+
+- name: set version
+  shell: "uuidgen -r | cut -c1-8"
+  register: package_uuid
+  delegate_to: localhost
+  run_once: true
+
+- name: updating advisory packages
+  shell: "sudo yum {{ package_update_cmd }}"
+  register: package_install_chk
+  ignore_errors: true
+#- debug: var=package_install_chk
+
+- debug: msg={{ package_install_chk.rc }}
+  register: package_run
+  when: (package_install_chk.rc == 0) and (not "No packages marked for update" in package_install_chk.stdout) and (package_install_chk is success)
+
+- set_fact:
+    package_update_date: "{{ package_install_chk.end | regex_replace('.{16}$') }}"
+    package_update_time: "{{ package_install_chk.end | regex_replace('^.{0,11}') | regex_replace('.{10}$') }}"
+    msg_job_time: "{{ lookup('pipe', 'date +%s') }}"
+    msg_job_uuid: "{{ package_uuid.stdout }}"
+  when: not package_run is skipped
+
+- name: getting update id
+#  shell: "sudo yum history --setopt=history_list_view=commands | tail -n21 | grep {{ package_update_date }} | grep {{ package_update_time }} | head -n1 | awk '{print $1}'"
+  shell: "sudo yum history info | grep 'Transaction ID' | cut -d ':' -f2 | awk '{print $1}'"
+  register: package_id
+  when: not package_run is skipped
+
+- name: saving version
+  shell: "echo {{ package_uuid.stdout }}-{{ package_id.stdout }} >> {{ package_uuid_file }}"
+  when: not package_run is skipped
+  become: no
+
+- name: package cleanup
+  shell: "sudo yum clean all"
+  when: not package_run is skipped
+
+- set_fact:
+    packages_function_report: true
+    packages_function_alert: true
+  when: not package_run is skipped
+
+- set_fact:
+    packages_function_report: false
+    packages_function_alert: false
+  when: package_run is skipped
+
+

@@ -1,0 +1,16 @@
+---
+- hosts: localhost
+  connection: local
+  become: no
+  gather_facts: false
+  vars:
+    env: test
+    function: ci
+    ansible_archive_host: localhost
+    ansible_archive_user: ci
+    msg_function_alert: false
+    msg_function_report: false
+    msg_function_remove: false
+  tasks:
+    - include_tasks: "../tasks/main.yml"
+

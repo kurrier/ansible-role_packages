@@ -1,0 +1,6 @@
+---
+# vars file for lc.packages
+#package_count: ''
+
+package_last_update: "{{ package_update5_chk.stdout }}"
+package_count: "{{ package_process_count.stdout }}"

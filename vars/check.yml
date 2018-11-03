@@ -1,0 +1,29 @@
+---
+# vars file for lc.packages
+
+# Location Variables
+package_process_location: "{{ lookup('env', 'HOME') }}/.ansible/reports/updates/"
+package_report_location: "{{ package_process_location }}{{ lookup('pipe', 'date +%Y-%m') }}/"
+package_report_results: "{{ package_report_location }}{{ env }}_check_{{ lookup('pipe', 'date +%Y%m%d') }}.txt"
+package_results_location: "{{ package_report_location }}hosts/"
+
+package_archive_location: "{{ ansible_archive_location }}reports/updates/{{ lookup('pipe', 'date +%Y-%m') }}/"
+
+# Report Setup
+package_report_header1: "{{ env }},{{ ansible_date_time.date }},{{ package_uuid.stdout }}"
+package_report_header2: "Group,Host,OS Version,Last Update,Uptime,Last Reboot,Packages"
+package_report_syntax: "{{ function }},{{ ansible_hostname }},{{ ansible_distribution_version }},{{ package_last_update }},{{ package_uptime_chk.stdout }},{{ package_boot_chk.stdout }},{{ package_count }}"
+
+# Temp Files
+package_script1_tmpfile1: tmp_yumcheck1.txt
+package_script1_tmpfile2: tmp_yumcheck2.txt
+package_script1_outfile: yum-updates-{{ lookup('pipe', 'date +%Y-%m') }}.txt
+
+# Final Files
+package_check_outfile: "{{ ansible_hostname }}-check_{{ package_uuid.stdout }}.txt"
+package_report_final: "{{ env }}_updates_{{ package_results_final_time }}.txt"
+
+# Parse File Actions
+#package_parse_sed0: "-e '1,2d' -e 's/Obsoleting Packages//g' -e 's/rhel-{{ ansible_distribution_major_version }}-server-rpms//g' -e '/^\s*$/d'"
+package_parse_sed1: "-e '1,2d' -e 's/Obsoleting Packages//g' -e 's/rhel-{{ ansible_distribution_major_version }}-server-rpms//g'"
+package_parse_awk1: "'{print $1 \",\" $2}'" 

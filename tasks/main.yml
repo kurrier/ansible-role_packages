@@ -1,0 +1,51 @@
+---
+# tasks file for lc.packages
+
+- name: add OS variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_distribution }}{{ ansible_distribution_major_version }}.yml"
+  no_log: true
+
+- name: add packages variables
+  include_vars:
+    file: "defaults.yml"
+  no_log: true
+  
+- block:
+  - name: Check Updates
+    include_tasks: check.yml
+    when: packages_check is defined and packages_check|bool == true
+
+  - name: Install All Updates
+    include_tasks: update_all.yml
+    when: packages_all is defined and packages_all|bool == true
+
+  - name: Install Security Patches
+    include_tasks: update_security.yml
+    when: packages_security is defined and packages_security|bool == true
+
+  - name: Install Advisory Update
+    include_tasks: update_advisory.yml
+    when: packages_advisory is defined and packages_advisory|length > 0
+
+  - name: Install Package
+    include_tasks: install.yml
+    when: packages_install is defined and packages_install|length > 0
+
+  - name: Remove Package
+    include_tasks: remove.yml
+    when: 
+      - packages_function_remove|bool == true
+      - packages_remove|length > 0 or packages_remove_job|length > 0
+
+  - name: Running Report
+    include_tasks: report.yml
+    when: packages_function_report|bool == true
+
+  - name: Running Alert Configuration
+    include_tasks: alert.yml
+    when: packages_function_alert|bool == true
+
+  when: ansible_distribution == "RedHat" and ansible_distribution_major_version >= "6"
+

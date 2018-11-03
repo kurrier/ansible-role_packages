@@ -1,0 +1,131 @@
+---
+
+- name: add packages variables
+  include_vars:
+    file: "update.yml"
+  no_log: true
+
+- set_fact:
+    package_update_cmd: "update -y"
+    package_update_type: "All Packages"
+    package_update_run: "update"
+    package_update_grep: "Updated"
+
+- name: set version
+  shell: "uuidgen -r | cut -c1-8"
+  register: package_uuid
+  delegate_to: localhost
+  run_once: true
+
+- name: updating all packages
+  shell: "sudo yum {{ package_update_cmd }} --skip-broken --exclude={{ packages_blacklist }}"
+  register: package_install_chk
+  ignore_errors: true
+#- debug: var=package_install_chk
+
+- debug: msg={{ package_install_chk.rc }}
+  register: package_run
+  when:
+    - package_install_chk is success
+    - package_install_chk.rc == 0
+    - (not "No packages marked for update" in package_install_chk.stdout) or (not "No Packages marked for Update" in package_install_chk.stdout)
+
+- set_fact:
+    package_update_date: "{{ package_install_chk.start | regex_replace('.{16}$') }}"
+    package_update_time: "{{ package_install_chk.start | regex_replace('^.{0,11}') | regex_replace('.{10}$') }}"
+    msg_job_time: "{{ lookup('pipe', 'date +%s') }}"
+    msg_job_uuid: "{{ package_uuid.stdout }}"
+  when: not package_run is skipped
+
+- name: getting update id
+#  shell: "sudo yum history --setopt=history_list_view=commands | tail -n21 | grep {{ package_update_date }} | grep {{ package_update_time }} | head -n1 | awk '{print $1}'"
+  shell: "sudo yum history info | grep 'Transaction ID' | cut -d ':' -f2 | awk '{print $1}'"
+  register: package_id
+  when: not package_run is skipped
+
+- name: saving version
+  shell: "echo {{ package_uuid.stdout }}-{{ package_id.stdout }} > {{ package_uuid_file }}"
+  when: not package_run is skipped
+  become: no
+
+- name: check if reboot is required
+  shell: "{{ package_update_reboot }}"
+  ignore_errors: true
+  register: package_reboot_required
+  when: packages_reboot == true and not package_run is skipped
+
+
+- block:
+    - name: restart server
+      shell: 'sudo /sbin/shutdown -r +1 "Reboot triggered by Ansible after Patching"'
+      ignore_errors: true
+      register: package_reboot_started
+      when: package_reboot_required is defined and package_reboot_required.stdout == 'reboot_needed'
+
+    - name: pause for 2 mins
+      pause:
+        minutes: 2
+      when: package_reboot_started is defined and not package_reboot_started is skipped
+
+    - name: check server status      
+      wait_for_connection:
+        timeout: 10
+      vars:
+        ansible_connection: ssh
+      register: package_install_stat
+
+    - name: add devices with connectivity to the "working_hosts" group
+      group_by:
+        key: "working_hosts"
+
+  rescue:
+    - debug: msg="cannot connect to "
+
+    - set_fact:
+        msg_alert_title: "Updates Failed. Server Down!"
+        msg_alert_msg: "After updating {{ ansible_hostname }}, server is not responding.\n
+                       Troubleshoot Results:\n
+                       {{ package_install_stat.msg }}"
+        msg_alert_body: "After updating {{ ansible_hostname }}, server is not responding.\n
+                       Troubleshoot Results:\n
+                       {{ package_install_stat.msg }}"
+        msg_alert_lvl: 1
+
+    - set_fact:
+        packages_function_report: false
+        packages_function_alert: false
+        when: package_run is skipped or package_install_stat is failed
+
+  when: packages_reboot == true and not package_run is skipped
+
+- name: package cleanup
+  shell: "sudo yum clean all"
+  when: not package_run is skipped and package_install_stat is success
+
+- set_fact:
+    packages_function_report: true
+    packages_function_alert: true
+  when: not package_run is skipped and package_install_stat is success
+
+- name: service test
+  block: 
+    - name: checking for service updates
+      debug:
+        msg: "{{ item }}"   
+      with_items: "{{ sudo_services }}"
+      when: item in package_install_chk.stdout
+      register: service_updated
+
+    - set_fact:
+        common_service_state: restart
+      with_items: "{{ service_updated.results }}"
+      when: not item is skipped
+
+    - debug:
+        msg: "{{ common_service_state }}"
+      when: common_service_state is defined
+
+  when:
+    - not package_run is skipped
+    - sudo_services is defined
+    - common_function_service is defined and common_function_service|bool == true

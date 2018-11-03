@@ -1,0 +1,162 @@
+---
+- name: add alert variables
+  include_vars:
+    file: "alert.yml"    
+  no_log: true
+
+- name: add alert variables
+  include_vars:
+    file: "report.yml"
+  no_log: true
+
+- name: alert configuration [installs]
+  block:
+    - name: gathering alert information
+      shell: "sudo yum history info {{ package_id.stdout }} > {{ package_host_results }}"
+      register: package_report_info
+
+    - name: alert update count
+      shell: "sed '$ d' {{ package_host_results }} | grep 'Updated' | wc -l"
+      register: package_report_updatecount
+      when:
+        - package_update_run == "update" or package_update_run == "security"
+        - package_report_info is success
+
+    - name: alert installed package
+      shell: "rpm -qa --qf '%{INSTALLTIME} %{INSTALLTIME:date} %30{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort -n | cut -d ' ' -f2- | tail -n1 | awk '{print $8}'"
+      register: package_report_updatefile
+      when: package_update_run == "install" and package_report_info is success
+
+    - name: creating install alert
+      shell: 'echo "{{ inventory_hostname }} successfully installed {{ package_report_updatefile.stdout }} package (ID: {{ package_id.stdout }})" >> {{ package_alert_results }}'
+      delegate_to: localhost
+      when: package_update_run == "install" and package_report_info is success
+
+    - name: creating update alert
+      shell: 'echo "{{ inventory_hostname }} successfully updated {{ package_report_updatecount.stdout }} packages (ID: {{ package_id.stdout }})" >> {{ package_alert_results }}'
+      delegate_to: localhost
+      when:
+        - package_update_run == "update" or package_update_run == "security"
+        - package_report_info is success
+
+    - name: caching results
+      shell: "cat {{ package_alert_results }}"
+      register: package_alert_txt
+      run_once: true
+      delegate_to: localhost      
+
+    - set_fact:
+        msg_alert_title: "Package Installed"
+        msg_alert_url: ""
+        msg_alert_txt: "{{ package_alert_txt.stdout }}"
+        msg_alert_body: "{{ package_alert_txt.stdout }}"
+        msg_alert_lvl: 3
+      when: package_update_run == "install" and package_report_info is success
+
+    - set_fact:
+        msg_alert_title: "Updates Installed"
+        msg_alert_url: ""
+        msg_alert_txt: "{{ package_alert_txt.stdout }}"
+        msg_alert_body: "{{ lookup('file', package_report_location+package_report_final) }}"
+        msg_alert_lvl: 3
+      when: package_update_run == "update" and package_report_info is success
+
+    - set_fact:
+        msg_alert_title: "Security Patches Installed"
+        msg_alert_url: ""
+        msg_alert_txt: "{{ package_alert_txt.stdout }}"
+        msg_alert_body: "{{ lookup('file', package_report_location+package_report_final) }}"
+        msg_alert_lvl: 3
+      when: package_update_run == "security" and package_report_info is success
+
+  when: 
+    - package_update_run == "update" or package_update_run == "install" or package_update_run == "security"
+
+- name: alert configuration [remove]
+  block:  
+    - name: creating remove alert
+      shell: 'echo "{{ inventory_hostname }} removed {{ packages_remove }} job changes (ID: {{ package_id.stdout }})" >> {{ package_alert_results }}'
+      delegate_to: localhost
+      when: package_update_run == "remove"
+
+    - name: creating remove_job alert
+      shell: 'echo "{{ inventory_hostname }} removed {{ packages_remove_job }} job changes (ID: {{ package_id.stdout }})" >> {{ package_alert_results }}'
+      delegate_to: localhost 
+      when: package_update_run == "remove_job"
+
+    - name: caching results
+      shell: "cat {{ package_alert_results }}"
+      register: package_alert_txt
+      run_once: true
+      delegate_to: localhost
+
+    - set_fact:
+        msg_alert_title: "Package Removed"
+        msg_alert_url: ""
+        msg_alert_txt: "{{ package_alert_txt.stdout }}"
+        msg_alert_body: "{{ package_alert_txt.stdout }}"
+        msg_alert_lvl: 3
+      when: package_update_run == "remove"
+
+    - set_fact:
+        msg_alert_title: "Packages Removed"
+        msg_alert_url: ""
+        msg_alert_txt: "{{ package_alert_txt.stdout }}"
+        msg_alert_body: "{{ package_alert_txt.stdout }}"
+        msg_alert_lvl: 3
+      when: package_update_run == "remove_job"
+
+  when: 
+    - package_update_run == "remove" or package_update_run == "remove_job"
+
+- name: alert configuration [checks]
+  block:
+    - name: creating update alert
+      shell: 'echo "{{ inventory_hostname }} has {{ package_process_count.stdout }} updates available" >> {{ package_alert_results }}'
+      delegate_to: localhost
+#      when: package_process_count.stdout|int > 0
+
+    - name: caching results
+      shell: "cat {{ package_alert_results }}"
+      register: package_alert_txt
+      run_once: true
+      delegate_to: localhost
+#      when: package_process_count.stdout|int > 0
+
+    - set_fact:
+        msg_alert_title: "Updates Available"
+        msg_alert_url: ""
+        msg_alert_txt: "{{ package_alert_txt.stdout }}"
+        msg_alert_body: "{{ lookup('file', package_report_results) }}"
+        msg_alert_lvl: 4
+      when: package_process_count.stdout|int >= 1
+
+    - set_fact:
+        msg_alert_title: "No Updates Available"
+        msg_alert_url: ""
+        msg_alert_txt: "{{ package_alert_txt.stdout }}"
+        msg_alert_body: "{{ lookup('file', package_report_results) }}"
+        msg_alert_lvl: 4
+      when: package_process_count.stdout|int == 0
+
+  when:
+    - package_update_run == "check-update"
+
+- name: cleaning up
+  block:
+    - name: removing remote host report
+      shell: "rm -rf {{ package_host_results }}"
+
+    - name: removing remote host report
+      shell: "rm -rf {{ package_alert_results }}"
+      run_once: true
+      delegate_to: localhost
+
+    - name: cleaning up all temp files
+      file:
+        path: "{{ package_process_location }}"
+        state: absent
+      run_once: true
+      delegate_to: localhost
+
+#  when: package_alert_sent is success

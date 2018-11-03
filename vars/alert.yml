@@ -1,0 +1,9 @@
+---
+#Alert Variables
+package_alert_outfile: "yum-alert-{{ lookup('pipe', 'date +%Y-%m') }}.txt"
+package_alert_results: "{{ package_script_location }}{{ package_alert_outfile }}"
+
+msg_subject: "Ansible Packages"
+msg_footer: "RedHat"
+msg_footer_icon: "https://cdn1.lifecare.com/devops/shared/redhat.png"
+

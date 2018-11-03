@@ -1,0 +1,117 @@
+---
+- name: add packages variables
+  include_vars:
+    file: "report.yml"
+  no_log: true
+
+- name: gathering report details
+  block:
+    - name: gathering update information
+      shell: "sudo yum history info {{ package_id.stdout }} > {{ package_host_results }}"
+      register: package_report_info
+
+    - name: getting update count
+      shell: "sed '$ d' {{ package_host_results }} | grep '{{ package_update_grep }}' | wc -l"
+      register: package_report_updatecount
+      when: 
+        - package_update_run == "update" or package_update_run == "install" or package_update_run == "security"
+        - package_report_info is success
+
+#    - name: getting update count
+#      shell: "sed '$ d' {{ package_host_results }} | grep 'Install ' | wc -l"
+#      register: package_report_installcount
+#      when: package_update_run == "install" and package_report_info is success 
+
+    - name: getting updated files
+      shell: "rpm -qa --qf '%{INSTALLTIME} %{INSTALLTIME:date} %30{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort -n | cut -d ' ' -f2- | tail -n{{ package_report_updatecount.stdout }}"
+      register: package_report_updatefile
+      when:
+        - package_update_run == "update" or package_update_run == "security"
+        - package_report_info is success
+
+    - name: update confirmation
+      shell: "grep 'Return-Code' {{ package_host_results }} | awk '{print $3}'"
+      register: package_report_confirm
+      when: package_report_info is success
+
+- name: creating host report
+  block:
+    - name: parsing host report header
+      shell: "echo '#--' >> {{ package_host_results }}"
+
+    - name: parsing host report details (success)
+      shell: "echo '{{ ansible_hostname }} Updated Successful at {{ package_update_date }} {{ package_update_time }} ({{ package_uuid.stdout }}-{{ package_id.stdout }})' >> {{ package_host_results }}"
+      when: package_update_run == "update" or package_update_run == "security"
+
+    - name: parsing host report details (success)
+      shell: "echo '{{ ansible_hostname }} Installed Successful at {{ package_update_date }} {{ package_update_time }} ({{ package_uuid.stdout }}-{{ package_id.stdout }})' >> {{ package_host_results }}"
+      when: package_update_run == "install"
+
+#    - name: parsing host report details (failure)
+#      shell: "echo '{{ ansible_hostname }} Update Failed at {{ package_update_date }} {{ package_update_time }} ({{ package_uuid.stdout }}-{{ package_id.stdout }})' >> {{ package_host_results }}"
+#      when: "Failed" in package_report_confirm.stdout
+
+    - name: parsing host report details (count)
+      shell: "echo '{{ package_report_updatecount.stdout }} Packages Updated' >> {{ package_host_results }}"
+      when: package_update_run == "update" or package_update_run == "security"
+
+    - name: parsing host report details (count)
+      shell: "echo '{{ package_report_updatecount.stdout }} Packages Installed' >> {{ package_host_results }}"
+      when: package_update_run == "install"
+
+    - name: parsing host report details (blank)
+      shell: 'echo "" >> {{ package_host_results }}'
+
+    - name: parsing host report details (files)
+      shell: "echo '{{ package_report_updatefile.stdout }}' >> {{ package_host_results }}"
+
+    - name: parsing host report footer
+      shell: "echo '#-' >> {{ package_host_results }}"
+      register: package_report_host
+       
+#  register: package_report_host
+  when: package_report_info is success
+
+- name: creating job report
+  block:
+    - name: fetching remote host report
+      fetch:
+        src: "{{ package_host_results }}"
+        dest: "{{ package_results_location }}{{ package_results_outfile }}"
+        flat: yes
+      register: packages_fetch_results
+
+    - set_fact:
+        package_results_final_time: "{{ lookup('pipe', 'date +%Y%m%d%H%M') }}"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: combining host data
+      shell: "sed -n '/#--/,/#-/p' {{ package_results_location }}{{ package_results_outfile }} >> {{ package_report_location }}{{ package_report_final }}"
+      become: false
+      delegate_to: localhost
+      register: package_report_full
+      when: packages_fetch_results is success
+
+  when: package_report_host is success 
+
+- name: archiving report
+  copy:
+    src: "{{ package_report_location }}"
+    dest: "{{ package_archive_location }}"
+#    owner: "{{ ansible_archive_user }}"
+#    group: "{{ ansible_archive_user }}"
+  delegate_to: "{{ ansible_archive_host }}"
+  remote_user: "{{ ansible_archive_user }}"
+  become: false
+  run_once: true
+  register: package_archive_sent
+  when: function != "ci" or package_report_full is success
+
+- name: cleaning up
+  block:
+    - name: removing remote host report
+      shell: "rm -rf {{ package_host_results }}"
+
+  when: package_archive_sent is changed

@@ -1,0 +1,131 @@
+- name: add packages variables
+  include_vars:
+    file: "check.yml"
+  no_log: true
+
+- set_fact:
+    package_update_type: "Check Updates"
+    package_update_run: "check-update"
+
+- name: set version
+  shell: "uuidgen -r | cut -c1-8"
+  register: package_uuid
+  delegate_to: localhost
+  run_once: true
+
+- set_fact:
+    msg_job_time: "{{ lookup('pipe', 'date +%s') }}"
+    msg_job_uuid: "{{ package_uuid.stdout }}"
+
+- name: checking last update
+  shell: "sudo yum --setopt=history_list_view=commands history list all | grep -w -e ' update' -e '-y update  ' | head -n1 | cut -d '|' -f3 | awk '{print $1}'"
+  register: package_update_chk
+#  become: yes
+  when: ansible_distribution_major_version >= "6"
+
+- name: getting uptime
+  shell: "uptime | cut -d ' ' -f 4 | cut -d ',' -f 1"
+  become: no
+  register: package_uptime_chk
+
+- name: getting last reboot date
+  shell: "who -b | cut -d' ' -f13"
+  become: no
+  register: package_boot_chk
+
+- name: checking for updates
+  shell: "sudo yum check-update > {{ package_script_location }}{{ package_script1_tmpfile1 }}"
+  ignore_errors: true
+  register: package_yumcheck_chk
+
+- name: parsing update file
+  block:
+    - name: removing noise from file
+      shell: "sed {{ package_parse_sed1 }} {{ package_script_location }}{{ package_script1_tmpfile1 }} | awk {{ package_parse_awk1 }} > {{ package_script_location }}{{ package_script1_tmpfile2 }}"
+      register: package_parse_fix1   
+   
+    - name: inserting hostname into file
+      shell: "sed -e 's/^/'{{ ansible_hostname }},'/' {{ package_script_location }}{{ package_script1_tmpfile2 }} > {{ package_script_location }}{{ package_script1_outfile }}"
+      register: package_parse_fix2
+      when: package_parse_fix1 is success
+
+    - name: cleaning up temp files
+      file:
+        path: "{{ package_script_location }}{{ package_script1_tmpfile1 }}"
+        state: absent
+      when: package_parse_fix2 is success
+
+    - name: cleaning up temp files
+      file:
+        path: "{{ package_script_location }}{{ package_script1_tmpfile2 }}"
+        state: absent
+      when: package_parse_fix2 is success
+
+#  when: package_yumcheck_chk is success
+
+- name: package cleanup
+  shell: "sudo yum clean all"
+
+- name: gathering update information
+  block:
+    - name: sending data to localhost
+      fetch:
+        src: "{{ package_script_location }}{{ package_script1_outfile }}"
+        dest: "{{ package_results_location }}{{ package_check_outfile }}"
+        flat: yes
+      register: package_fetch_chk
+
+    - name: getting package results
+      shell: "cat {{ package_results_location }}{{ package_check_outfile }} | wc -l"
+      register: package_process_count
+      become: no
+      delegate_to: localhost
+      when: package_fetch_chk is success
+
+  when: package_parse_fix2 is success
+
+- name: creating update report
+  block:
+    - name: setup report
+      shell: "echo {{ package_report_header1 }} > {{ package_report_results }} && echo {{ package_report_header2 }} >> {{ package_report_results }}"
+      delegate_to: localhost
+      become: no
+      run_once: true
+
+    - name: saving results
+      shell: 'echo "{{ package_report_syntax }}" >> {{ package_report_results }}'
+      become: no
+      delegate_to: localhost
+      register: packge_checkreport_full
+
+  when: package_process_count is success
+
+- name: archiving reports
+  copy:
+    src: "{{ package_report_location }}"
+    dest: "{{ package_archive_location }}"
+#    owner: "{{ ansible_archive_user }}"
+#    group: "{{ ansible_archive_group }}"
+  delegate_to: "{{ ansible_archive_host }}"
+  remote_user: "{{ ansible_archive_user }}"
+  become: false
+  run_once: true
+  register: package_archive_sent
+  when: function != "ci" or packge_checkreport_full is success
+
+- name: cleaning up
+  block:
+  - name: removing remote host report
+    file:
+      path: "{{ package_script_location }}{{ package_script1_outfile }}"
+      state: absent
+   
+  when: package_archive_sent is changed
+
+- set_fact:
+    packages_function_report: false
+
+- set_fact:
+    packages_function_alert: true
+  when: packge_checkreport_full is success
+
