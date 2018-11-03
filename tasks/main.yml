@@ -4,7 +4,8 @@
 - name: add OS variables
   include_vars:
     file: "RedHat.yml"
-  no_log: true
+#  no_log: true
+  when: function != "ci"
 
 - name: add packages variables
   include_vars:
