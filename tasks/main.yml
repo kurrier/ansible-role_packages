@@ -9,8 +9,8 @@
 
 - name: add packages variables
   include_vars:
-    file: "defaults.yml"
-  no_log: true
+    file: "vars/defaults.yml"
+#  no_log: true
   
 - block:
   - name: Check Updates
