@@ -1,6 +1,9 @@
-# Ansible Role: packages
+[![Build Status](https://travis-ci.org/kurrier/ansible-role_packages.svg?branch=master)](https://travis-ci.org/kurrier/ansible-role_packages)
 
-Install Packages
+Ansible Role: packages
+=========
+
+RHEL Package Management
 
 Requirements
 ------------
@@ -24,14 +27,12 @@ packages_function_install: [true/false] - enable/disable Install package functio
 packages_function_update_all: [true/false] - enable/disable Update All packages function
 packages_function_update_advisory: [true/false] - enable/disable Advisory Update function
 packages_function_remove: [true/false] - enable/disable Remove Pakages
+packages_security_remove: [true/false] - enable/disable Critical Updates Only
 
 packages_reboot: [true/false] - enable/disable auto Reboot in Update All
 
 packages_function_report: [true/false] - enable/disable Reports
 packages_function_alert: [true/false] - enable/disable Alerts
-
-packages_function_mail: [true/false] - enable/disable Email alerts
-packages_function_slack: [true/false] - enable/disable Slack alerts
 
 Extra Variables (Global recommended)
 --------------
@@ -41,9 +42,6 @@ ansible_mail_to: you@you.com - Email reciept
 
 ansible_archive_host: localhost - Host to store reports
 ansible_archive_user: someone - SSH user that has access to ansible_report_location
-
-ansible_slack_token: xxx/yyy/zzz - Slack App API token
-ansible_slack_channel: #mychannel - Slack Channel
 
 
 Dependecies
@@ -64,18 +62,26 @@ Example Playbook
         packages_advisory: RHSA-2017:2459
         packages_install: screen
 		
-		ansible_slack_token: xxx/yyy/zzz
-		ansible_slack_channel: #mychannel
-		
     - role: lc.packages
 	
-This will install advisory and install screen, then alert over Slack on success.
+This will install advisory and install screen.
 
 Test
 ----------------
 
 ansible-playbook tests/test.yml -i tests/inventory
 
+Plans
+----------------
+- Add support for Ubuntu/Debian
+
 License
 -------
-GPLv3
+
+Licensed under GPLv3 License. See LICENSE for details.
+
+Author Information
+------------------
+
+Nick Lalumiere
+
