@@ -4,7 +4,6 @@
   become: no
   gather_facts: no
   vars:
-    env: test
     function: ci
     ansible_archive_host: localhost
     ansible_archive_user: ci
