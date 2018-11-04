@@ -56,7 +56,7 @@ Example Playbook
         packages_advisory: RHSA-2017:2459
         packages_install: screen
 
-    - role: lc.packages
+    - role: kurrier.packages
 
 This will install advisory and install screen.
 
