@@ -1,6 +1,4 @@
-[![Build Status](https://travis-ci.org/kurrier/ansible-role_packages.svg?branch=master)](https://travis-ci.org/kurrier/ansible-role_packages)
-
-Ansible Role: packages
+Ansible Role: packages [![Build Status](https://travis-ci.org/kurrier/ansible-role_packages.svg?branch=master)](https://travis-ci.org/kurrier/ansible-role_packages)
 =========
 
 RHEL Package Management
